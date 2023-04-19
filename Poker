@@ -1,0 +1,362 @@
+//Dealer Class
+public class Dealer
+{
+  public var hand : [Card] = []
+}
+
+//Player Class
+public class Player : Dealer
+{
+  public var balance : Int = 100;
+
+  public func placeBet(amount: Int) -> Bool
+  {
+    if (amount <= balance && amount > 0)
+    {
+      balance -= amount
+      return true
+    }
+    else
+    {
+      print("Invalid bet, try again.")
+      return false
+    }
+  }
+}
+
+//Card Class
+public class Card : Equatable, CustomStringConvertible
+{
+  public var faceUp : Bool = true
+  public var value : Int = 0
+  public var suit : String = ""
+  public var name : String = ""
+
+  public init(name: String, suit: String, faceUp: Bool)
+  {
+    self.name = name
+    self.suit = suit
+    self.faceUp = faceUp
+  }
+
+  public static func == (lhs: Card, rhs: Card) -> Bool
+  {
+    return lhs.value == rhs.value && lhs.suit == rhs.suit && lhs.name == rhs.name
+  }
+
+  //Returns name and suit of card unless it is face-down
+  public var description: String
+  {
+    if (faceUp == true)
+    {
+      return "\(name) of \(suit)"
+    }
+    else
+    {
+      return "Face-Down Card"
+    }
+  }
+}
+
+//Initialize empty deck
+var deck : [Card] = []
+
+//Function to setup the deck
+//Builds deck with all required cards and shuffles them
+//Returns the shuffled deck when done
+public func setupDeck() -> [Card]
+{
+  //Possible Card Names
+  let cardNames : [String] = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace"]
+  //Possible Card Suits
+  let cardSuits : [String] = ["♠", "♥", "♣", "♦"]
+  //Empty Card Array (Deck)
+  var deck : [Card] = []
+  
+  //Build initial deck
+  for suit in cardSuits
+  {
+    for name in cardNames
+    {
+      deck.append(Card(name: name, suit: suit, faceUp: true))
+    }
+  }
+  
+  //Shuffle deck
+  deck.shuffle()
+
+  return deck
+}
+
+
+
+//Function for calculating the value of a hand.
+public func calculateHand(hand: [Card]) -> Int
+{
+  var returnVal = 0
+  var hasAce = false
+  var acePos : [Int] = []
+  //For each card in hand, add the values up
+  for card in hand
+  {
+    returnVal += card.value
+    //If the card is an ace, mark that there is an ace in this hand and where it is
+    if card.name == "Ace"
+    {
+      hasAce = true
+      acePos.append(hand.firstIndex(of: card)!)
+    }
+  }
+  if hasAce
+  {
+    for ace in acePos
+    {
+      //If an 11 value ace would bust you, swap it to value of 1
+      //and adjust the return value
+      if returnVal > 21 && hand[ace].value != 1
+      { 
+        hand[ace].value = 1
+        returnVal -= 10 
+      }
+    }
+  }
+  return returnVal
+}
+
+//Function to calculate the values of the cards
+public func calculateCardValue(card: Card) -> Int
+{
+  switch (card.name)
+  {
+    case "2","3","4","5","6","7","8","9" : return Int(card.name) ?? 0
+    case "10","Jack","Queen","King" : return 10
+    case "Ace": return 11
+    default: return 0
+  }
+}
+
+//Function to deal a card to the player or dealer, need to tell it if you want
+//the card to be dealt face-up or not
+public func dealCard(faceUp: Bool) -> Card
+{
+  //Get the first card from the deck
+  let cardToDeal : Card = deck.removeFirst()
+  cardToDeal.faceUp = faceUp
+  cardToDeal.value = calculateCardValue(card: cardToDeal)
+  
+  //Return the card.
+  return cardToDeal
+}
+
+//Function for dealing out the initial hands for the dealer and player
+public func initialDeal()
+{
+  player.hand.append(dealCard(faceUp: true))
+  dealer.hand.append(dealCard(faceUp: true))
+  player.hand.append(dealCard(faceUp: true))
+  dealer.hand.append(dealCard(faceUp: false))
+}
+
+//Initialize Player and Dealer
+var player = Player()
+var dealer = Dealer()
+
+var needRules : Bool = true
+
+public func rules()
+{
+  //Ask if player needs to see the rules here
+  print("Type 'rules' to view the rules of the game.\nPress enter if you dont want to view the rules and enter a bet amount.")
+  
+  let input = readLine() ?? ""
+  if input == "rules"
+  {
+    //Display rules
+    print("Rules:\nBlackjack hands are scored by their point total. The hand with the highest total wins as long as it doesn't exceed 21;\nA hand with a higher total than 21 is said to bust. Cards 2 through 10 are worth their face value, and face cards (jack, queen, king) are also worth 10.\nThe player will be prompted to place a bet and then will be prompted to hit (dealt a card) until they stand. The dealer will then be dealt, and the two hands are then compared to see who is closest to 21, whoever is closest wins the round.\nIf dealt a 21, it is an automatic win!")
+  }
+}
+
+//The game function that will call all the other functions accordingly and allow for the game to be played
+public func game()
+{
+  //Setup and shuffle deck
+  deck = setupDeck()
+  
+  //Welcome message
+  print("Welcome to Blackjack!")
+  print("You currently have $\(player.balance)")
+
+  //Only ask if the player needs to see the rules the first
+  //time they run the game, subsequent replays will not display
+  //the rules prompt
+  if needRules == true
+  {
+    rules()
+    needRules = false
+  }
+  
+  //Prompt for user bet
+  print("Please place a bet.")
+  var betAmount = Int(readLine()!) ?? 0
+  var bet = player.placeBet(amount: betAmount)
+  //If bet is 0 or greater than players balance, prompt again.
+  while bet != true
+  {
+    betAmount = Int(readLine()!) ?? 0
+    bet = player.placeBet(amount: betAmount)
+  }
+  print("You bet $\(betAmount), you have $\(player.balance) left.")
+
+  //Set winnings amount based on what was bet
+  let winnings = betAmount * 2
+
+  //Deal out cards alternating between player and dealer
+  //Dealers second card is dealt face-down
+  initialDeal()
+
+  //Calculate players hand
+  var playerHandValue = calculateHand(hand: player.hand)
+  //Display player's hand value
+  print("Your hand contains \(player.hand) for a value of \(playerHandValue)")
+  //If player has 21 they get Blackjack and potentially auto win
+  if playerHandValue == 21
+  {
+    print("BLACKJACK!!!")
+    //Calculate dealers hand and display what they have
+    dealer.hand[1].faceUp = true
+    let dealerHandValue = calculateHand(hand: dealer.hand)
+    print("The dealer's hand contains \(dealer.hand)")
+    //If dealer also has blackjack, tie game
+    if dealerHandValue == 21
+    {
+      player.balance += betAmount
+      print("You tied with the dealer. You receive your bet of $\(betAmount) back.")
+      print("You have $\(player.balance)")
+    }
+    //Otherwise player wins
+    else
+    {
+      player.balance += betAmount + Int(Double(betAmount) * 1.5)
+      print("YOU WIN! The payout is $\(betAmount + (betAmount / 2)), you now have $\(player.balance)")
+    }
+    return
+  }
+  //Display what dealer has
+  print("The dealer's hand contains \(dealer.hand)")
+  //Prompt player to either hit or stand
+  print("Hit or Stand?")
+  var playerInput : String = readLine()?.lowercased() ?? "Invalid"
+  repeat
+  {
+    if playerInput == "hit"
+    {
+      //Player hand will be dealt a card
+      player.hand.append(dealCard(faceUp: true))
+      //The system will recalculate the value of the player's hand 
+      playerHandValue = calculateHand(hand: player.hand)
+      print("Your hand contains \(player.hand) for a value of \(playerHandValue)")
+      //If the player's hand value is above 21, they lose their bet amount
+      if playerHandValue > 21
+      {
+        print("BUST, you lost $\(betAmount), you have $\(player.balance) left.")
+        return
+      }
+      //If the player's hand value is below 21, continue to prompt the player if they want to hit or stand 
+      print("Hit or Stand?")
+      playerInput = readLine()?.lowercased() ?? "Invalid"
+    }
+    //If the player stands, break out of the loop and move onto the next part of the game
+    else if playerInput == "stand"
+    {
+      break
+    }
+    else
+    {
+      //Preventing any input other than hit or stand
+      print("Invalid selection, try again. (Hit/Stand)")
+      playerInput = readLine()?.lowercased() ?? "Invalid"
+    }
+  } while playerInput != "hit" || playerInput != "stand"
+
+  //Flip dealers second card face-up and calculate their hand value
+  dealer.hand[1].faceUp = true
+  var dealerHandValue = calculateHand(hand: dealer.hand)
+  //Display both player and dealers hands and values for comparison
+  print("Your hand contains \(player.hand) for a value of \(playerHandValue)")
+  print("The dealer's hand contains \(dealer.hand) for a value of \(dealerHandValue)")
+  //Check for dealer blackjack
+  if dealerHandValue == 21
+  {
+    print("Dealer Blackjack. You lost $\(betAmount) and you have $\(player.balance) left.")
+  }
+  //Dealer continues hitting until their hand value is greater than or equal 17
+  while dealerHandValue < 17
+  {
+    dealer.hand.append(dealCard(faceUp: true))
+    dealerHandValue = calculateHand(hand: dealer.hand)
+    print("Dealer Hits")
+    print("The dealer's hand contains \(dealer.hand) for a value of \(dealerHandValue)")
+  }
+  //If dealer has over 21 (bust), player wins
+  if dealerHandValue > 21
+  {
+    print("DEALER BUST!")
+    player.balance += winnings
+    print("YOU WIN! The payout is $\(winnings), you now have $\(player.balance)")
+  }
+  //Else if dealer has more than player, dealer wins.
+  else if (dealerHandValue > playerHandValue)
+  {
+    print("Dealer Stands at \(dealerHandValue)")
+    print("Dealer wins. You lost $\(betAmount) and you have $\(player.balance) left.")
+  }
+  //Else if player has more than dealer, player wins
+  else if (playerHandValue > dealerHandValue)
+  {
+    print("Dealer Stands at \(dealerHandValue)")
+    player.balance += winnings
+    print("YOU WIN! The payout is $\(winnings), you now have $\(player.balance)")
+  }
+  //Else if player and dealer tie, return bet to player
+  else if (playerHandValue == dealerHandValue)
+  {
+    print("Dealer Stands at \(dealerHandValue)")
+    player.balance += betAmount
+    print("You tied with the dealer. You receive your bet of $\(betAmount) back.")
+    print("You have $\(player.balance)")
+  }
+}
+
+var playAgain : Bool = true
+while playAgain == true
+{
+  //Start Game
+  game()
+
+  //After game, reset hands and track of cards dealt.
+  player.hand = []
+  dealer.hand = []
+
+  if player.balance <= 0
+  {
+    print("Sorry, you ran out of money. Better luck next time.")
+    break
+  }
+  //Prompt for playing again
+  print("Play again? Yes / No")
+  var playerInput : String = readLine()?.lowercased() ?? "Invalid"
+
+  //Keep asking if the response isn't "yes" or "no"
+  while playerInput != "no" && playerInput != "yes"
+  {
+    print("Invalid selection, please try again.")
+    playerInput = readLine()?.lowercased() ?? "Invalid"
+  }
+  //If no, quit and display current balance.
+  if playerInput == "no"
+  {
+    print("Thanks for playing!")
+    print("Your final balance is $\(player.balance)")
+    playAgain = false
+  }
+}
